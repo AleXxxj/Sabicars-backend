@@ -1,0 +1,28 @@
+const mongoose = require('mongoose');
+
+const CarSchema = new mongoose.Schema({
+  make: { type: String, required: true },
+  model: { type: String, required: true },
+  year: { type: String, required: true },
+  category: {
+    type: String,
+    enum: ['luxury', 'hiace', 'suv', 'truck'],
+    required: true
+  },
+  condition: { type: String, default: 'Tokunbo' },
+  mileage: { type: String },
+  fuel: { type: String },
+  colour: { type: String },
+  price: { type: String, default: 'Call Us' },
+  tag: {
+    type: String,
+    enum: ['hot', 'new', 'premium', 'supply'],
+    default: 'new'
+  },
+  description: { type: String },
+  images: [{ type: String }],
+  available: { type: Boolean, default: true },
+  featured: { type: Boolean, default: false },
+}, { timestamps: true });
+
+module.exports = mongoose.model('Car', CarSchema);
