@@ -59,7 +59,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST add new car (ADMIN ONLY)
-router.post('/', auth, upload.array('images', 6), async (req, res) => {
+router.post('/', auth, upload.array('images', 12), async (req, res) => {
   try {
     const images = req.files ? req.files.map(f => f.path) : [];
     const car = await Car.create({ ...req.body, images });
@@ -70,7 +70,7 @@ router.post('/', auth, upload.array('images', 6), async (req, res) => {
 });
 
 // PUT update car (ADMIN ONLY)
-router.put('/:id', auth, upload.array('images', 6), async (req, res) => {
+router.put('/:id', auth, upload.array('images', 12), async (req, res) => {
   try {
     const updates = { ...req.body };
     if (req.files && req.files.length > 0) {

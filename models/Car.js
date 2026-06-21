@@ -6,7 +6,7 @@ const CarSchema = new mongoose.Schema({
   year: { type: String, required: true },
   category: {
     type: String,
-    enum: ['luxury', 'hiace', 'suv', 'truck'],
+    enum: ['regular', 'luxury', 'suv', 'bus', 'truck'],
     required: true
   },
   condition: { type: String, default: 'Tokunbo' },
