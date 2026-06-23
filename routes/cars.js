@@ -38,18 +38,6 @@ function handleUpload(req, res, next) {
   });
 }
 
-function parseFeatures(body) {
-  if (body.featuresCSV !== undefined) {
-    return body.featuresCSV
-      ? body.featuresCSV.split(',').map(f => f.trim()).filter(Boolean)
-      : [];
-  }
-  if (body.features) {
-    return Array.isArray(body.features) ? body.features : [body.features];
-  }
-  return [];
-}
-
 router.get('/admin/all', auth, async (req, res) => {
   try {
     const cars = await Car.find().sort({ createdAt: -1 });
@@ -82,25 +70,27 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// POST — features excluded, saved separately via PATCH
 router.post('/', auth, handleUpload, async (req, res) => {
   try {
     const images = req.files ? req.files.map(f => f.path) : [];
     const body = { ...req.body };
-    body.features = parseFeatures(body);
+    delete body.features;
     delete body.featuresCSV;
-    const car = await Car.create({ ...body, images });
+    delete body.featuresJSON;
+    const car = await Car.create({ ...body, images, features: [] });
     res.status(201).json({ success: true, car });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 });
 
+// PUT — features deliberately not touched here
 router.put('/:id', auth, handleUpload, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
     if (!car) return res.status(404).json({ success: false, message: 'Car not found' });
 
-    // Images
     if (req.body.imagesManaged === 'true') {
       const keptImages = Array.isArray(req.body.keepImages)
         ? req.body.keepImages
@@ -113,7 +103,6 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
       car.markModified('images');
     }
 
-    // Plain string fields
     const stringFields = [
       'make','model','year','category','condition','bodyType',
       'mileage','fuel','colour','price','tag','description',
@@ -124,18 +113,27 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
       if (req.body[field] !== undefined) car[field] = req.body[field];
     });
 
-    // Boolean
     if (req.body.available !== undefined) {
       car.available = req.body.available === 'true' || req.body.available === true;
     }
 
-    // Features — explicit set + markModified so Mongoose always writes it
-    const features = parseFeatures(req.body);
-    car.features = features;
-    car.markModified('features');
-
     await car.save();
     res.json({ success: true, car });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// PATCH features — pure JSON, zero multer involvement
+router.patch('/:id/features', auth, express.json(), async (req, res) => {
+  try {
+    const features = Array.isArray(req.body.features) ? req.body.features : [];
+    const car = await Car.findById(req.params.id);
+    if (!car) return res.status(404).json({ success: false, message: 'Car not found' });
+    car.features = features;
+    car.markModified('features');
+    await car.save();
+    res.json({ success: true, features: car.features });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
