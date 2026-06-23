@@ -38,14 +38,12 @@ function handleUpload(req, res, next) {
   });
 }
 
-// CSV string — most reliable way to pass arrays through multer FormData
 function parseFeatures(body) {
   if (body.featuresCSV !== undefined) {
     return body.featuresCSV
       ? body.featuresCSV.split(',').map(f => f.trim()).filter(Boolean)
       : [];
   }
-  // fallback for any older requests
   if (body.features) {
     return Array.isArray(body.features) ? body.features : [body.features];
   }
@@ -99,29 +97,44 @@ router.post('/', auth, handleUpload, async (req, res) => {
 
 router.put('/:id', auth, handleUpload, async (req, res) => {
   try {
-    const updates = { ...req.body };
+    const car = await Car.findById(req.params.id);
+    if (!car) return res.status(404).json({ success: false, message: 'Car not found' });
 
+    // Images
     if (req.body.imagesManaged === 'true') {
       const keptImages = Array.isArray(req.body.keepImages)
         ? req.body.keepImages
         : (req.body.keepImages ? [req.body.keepImages] : []);
       const newImages = req.files ? req.files.map(f => f.path) : [];
-      updates.images = [...keptImages, ...newImages];
-      delete updates.imagesManaged;
-      delete updates.keepImages;
+      car.images = [...keptImages, ...newImages];
+      car.markModified('images');
     } else if (req.files && req.files.length > 0) {
-      updates.images = req.files.map(f => f.path);
+      car.images = req.files.map(f => f.path);
+      car.markModified('images');
     }
 
-    updates.features = parseFeatures(updates);
-    delete updates.featuresCSV;
+    // Plain string fields
+    const stringFields = [
+      'make','model','year','category','condition','bodyType',
+      'mileage','fuel','colour','price','tag','description',
+      'engine','horsepower','transmission','drivetrain',
+      'interiorColor','seats'
+    ];
+    stringFields.forEach(field => {
+      if (req.body[field] !== undefined) car[field] = req.body[field];
+    });
 
-    const car = await Car.findByIdAndUpdate(
-      req.params.id,
-      { $set: updates },
-      { new: true, runValidators: false }
-    );
-    if (!car) return res.status(404).json({ success: false, message: 'Car not found' });
+    // Boolean
+    if (req.body.available !== undefined) {
+      car.available = req.body.available === 'true' || req.body.available === true;
+    }
+
+    // Features — explicit set + markModified so Mongoose always writes it
+    const features = parseFeatures(req.body);
+    car.features = features;
+    car.markModified('features');
+
+    await car.save();
     res.json({ success: true, car });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
