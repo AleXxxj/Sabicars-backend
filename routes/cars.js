@@ -38,13 +38,14 @@ function handleUpload(req, res, next) {
   });
 }
 
+// CSV string — most reliable way to pass arrays through multer FormData
 function parseFeatures(body) {
-  if (body.featuresJSON) {
-    try {
-      const parsed = JSON.parse(body.featuresJSON);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) { return []; }
+  if (body.featuresCSV !== undefined) {
+    return body.featuresCSV
+      ? body.featuresCSV.split(',').map(f => f.trim()).filter(Boolean)
+      : [];
   }
+  // fallback for any older requests
   if (body.features) {
     return Array.isArray(body.features) ? body.features : [body.features];
   }
@@ -88,7 +89,7 @@ router.post('/', auth, handleUpload, async (req, res) => {
     const images = req.files ? req.files.map(f => f.path) : [];
     const body = { ...req.body };
     body.features = parseFeatures(body);
-    delete body.featuresJSON;
+    delete body.featuresCSV;
     const car = await Car.create({ ...body, images });
     res.status(201).json({ success: true, car });
   } catch (err) {
@@ -113,7 +114,7 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
     }
 
     updates.features = parseFeatures(updates);
-    delete updates.featuresJSON;
+    delete updates.featuresCSV;
 
     const car = await Car.findByIdAndUpdate(
       req.params.id,
