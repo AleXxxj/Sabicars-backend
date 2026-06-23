@@ -70,14 +70,11 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST — features excluded, saved separately via PATCH
 router.post('/', auth, handleUpload, async (req, res) => {
   try {
     const images = req.files ? req.files.map(f => f.path) : [];
     const body = { ...req.body };
     delete body.features;
-    delete body.featuresCSV;
-    delete body.featuresJSON;
     const car = await Car.create({ ...body, images, features: [] });
     res.status(201).json({ success: true, car });
   } catch (err) {
@@ -85,7 +82,6 @@ router.post('/', auth, handleUpload, async (req, res) => {
   }
 });
 
-// PUT — features deliberately not touched here
 router.put('/:id', auth, handleUpload, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
@@ -124,8 +120,8 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
   }
 });
 
-// PATCH features — pure JSON, zero multer involvement
-router.patch('/:id/features', auth, express.json(), async (req, res) => {
+// PATCH features — no multer, no inline express.json() — global one handles it
+router.patch('/:id/features', auth, async (req, res) => {
   try {
     const features = Array.isArray(req.body.features) ? req.body.features : [];
     const car = await Car.findById(req.params.id);
