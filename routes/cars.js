@@ -47,6 +47,16 @@ router.get('/admin/all', auth, async (req, res) => {
   }
 });
 
+// GET recently sold cars (public)
+router.get('/sold/recent', async (req, res) => {
+  try {
+    const cars = await Car.find({ available: false }).sort({ updatedAt: -1 }).limit(4);
+    res.json({ success: true, count: cars.length, cars });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const { category, featured } = req.query;
