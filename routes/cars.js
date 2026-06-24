@@ -149,14 +149,19 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
       'make','model','year','category','condition','bodyType',
       'mileage','fuel','colour','price','tag','description',
       'engine','horsepower','transmission','drivetrain',
-      'interiorColor','seats'
+      'interiorColor','seats','financeUrl'
     ];
+
     stringFields.forEach(field => {
       if (req.body[field] !== undefined) car[field] = req.body[field];
     });
 
     if (req.body.available !== undefined) {
       car.available = req.body.available === 'true' || req.body.available === true;
+    }
+
+    if (req.body.featured !== undefined) {
+      car.featured = req.body.featured === 'true' || req.body.featured === true;
     }
 
     await car.save();
