@@ -38,6 +38,7 @@ function handleUpload(req, res, next) {
   });
 }
 
+// Admin — all cars including sold
 router.get('/admin/all', auth, async (req, res) => {
   try {
     const cars = await Car.find().sort({ createdAt: -1 });
@@ -47,7 +48,7 @@ router.get('/admin/all', auth, async (req, res) => {
   }
 });
 
-// GET recently sold cars (public)
+// Recently sold — must be before /:id
 router.get('/sold/recent', async (req, res) => {
   try {
     const cars = await Car.find({ available: false }).sort({ updatedAt: -1 }).limit(4);
@@ -57,19 +58,52 @@ router.get('/sold/recent', async (req, res) => {
   }
 });
 
+// Public inventory — paginated + filtered server-side
 router.get('/', async (req, res) => {
   try {
-    const { category, featured } = req.query;
+    const { category, featured, make, page = 1, limit = 12, all } = req.query;
     let filter = { available: true };
-    if (category) filter.category = category;
+
     if (featured) filter.featured = true;
-    const cars = await Car.find(filter).sort({ createdAt: -1 });
-    res.json({ success: true, count: cars.length, cars });
+    if (make && make !== 'all') filter.make = make;
+
+    if (category && category !== 'all') {
+      if (category === 'cars') {
+        filter.$or = [{ category: 'regular' }, { category: 'luxury' }];
+      } else if (['suv', 'bus', 'truck'].includes(category)) {
+        filter.$or = [{ category }, { bodyType: category }];
+      } else {
+        filter.category = category;
+      }
+    }
+
+    const total = await Car.countDocuments(filter);
+
+    // all=true used for price sorting (fetch everything, sort client-side)
+    if (all === 'true') {
+      const cars = await Car.find(filter).sort({ createdAt: -1 });
+      return res.json({ success: true, count: cars.length, total, hasMore: false, cars });
+    }
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(24, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+    const cars = await Car.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum);
+
+    res.json({
+      success: true,
+      count: cars.length,
+      total,
+      page: pageNum,
+      hasMore: skip + cars.length < total,
+      cars
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// Single car
 router.get('/:id', async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
@@ -80,6 +114,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Add car
 router.post('/', auth, handleUpload, async (req, res) => {
   try {
     const images = req.files ? req.files.map(f => f.path) : [];
@@ -92,6 +127,7 @@ router.post('/', auth, handleUpload, async (req, res) => {
   }
 });
 
+// Update car
 router.put('/:id', auth, handleUpload, async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
@@ -130,7 +166,7 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
   }
 });
 
-// PATCH features — no multer, no inline express.json() — global one handles it
+// Update features
 router.patch('/:id/features', auth, async (req, res) => {
   try {
     const features = Array.isArray(req.body.features) ? req.body.features : [];
@@ -145,6 +181,7 @@ router.patch('/:id/features', auth, async (req, res) => {
   }
 });
 
+// Delete car
 router.delete('/:id', auth, async (req, res) => {
   try {
     const car = await Car.findByIdAndDelete(req.params.id);
