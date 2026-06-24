@@ -18,6 +18,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 const carsRouter = require('./routes/cars');
+const blogRouter = require('./routes/blog');
+app.use('/api/blog', blogRouter);
 const authRouter = require('./routes/auth');
 
 app.use('/api/cars', carsRouter);
