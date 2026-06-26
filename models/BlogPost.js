@@ -15,6 +15,14 @@ const BlogPostSchema = new mongoose.Schema({
   published:   { type: Boolean, default: false },
   publishedAt: { type: Date },
   readTime:    { type: String, default: '3 min read' },
+  reactions: {
+    like:       { type: Number, default: 0 },
+    fire:       { type: Number, default: 0 },
+    love:       { type: Number, default: 0 },
+    insightful: { type: Number, default: 0 },
+  },
+  shares:      { type: Number, default: 0 },
+  views:       { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('BlogPost', BlogPostSchema);
