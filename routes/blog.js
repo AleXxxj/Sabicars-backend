@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const BlogPost = require('../models/BlogPost');
+const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
 
 // GET all published posts (public)
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET all posts for admin including drafts (must be before /:slug)
+// GET all posts for admin (must be before /:slug)
 router.get('/admin/all', auth, async (req, res) => {
   try {
     const posts = await BlogPost.find().sort({ createdAt: -1 }).select('-content');
@@ -29,7 +30,17 @@ router.get('/admin/all', auth, async (req, res) => {
   }
 });
 
-// GET single post by ID for admin editing (full content included)
+// GET all comments for admin moderation
+router.get('/comments/all', auth, async (req, res) => {
+  try {
+    const comments = await Comment.find().sort({ createdAt: -1 }).populate('postId', 'title slug');
+    res.json({ success: true, count: comments.length, comments });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET single post by ID for admin editing
 router.get('/admin/:id', auth, async (req, res) => {
   try {
     const post = await BlogPost.findById(req.params.id);
@@ -40,14 +51,71 @@ router.get('/admin/:id', auth, async (req, res) => {
   }
 });
 
-// GET single post by slug (public)
+// GET single post by slug — increments views
 router.get('/:slug', async (req, res) => {
   try {
-    const post = await BlogPost.findOne({ slug: req.params.slug, published: true });
+    const post = await BlogPost.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $inc: { views: 1 } },
+      { new: true }
+    );
     if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
     res.json({ success: true, post });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET comments for a post
+router.get('/:slug/comments', async (req, res) => {
+  try {
+    const post = await BlogPost.findOne({ slug: req.params.slug });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    const comments = await Comment.find({ postId: post._id, approved: true }).sort({ createdAt: -1 });
+    res.json({ success: true, count: comments.length, comments });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST add comment
+router.post('/:slug/comments', async (req, res) => {
+  try {
+    const post = await BlogPost.findOne({ slug: req.params.slug, published: true });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    const { name, message } = req.body;
+    if (!name || !message) return res.status(400).json({ success: false, message: 'Name and message are required' });
+    const comment = await Comment.create({ postId: post._id, name: name.trim(), message: message.trim() });
+    res.status(201).json({ success: true, comment });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// PATCH react to post
+router.patch('/:id/react', async (req, res) => {
+  try {
+    const { reaction } = req.body;
+    const allowed = ['like', 'fire', 'love', 'insightful'];
+    if (!allowed.includes(reaction)) return res.status(400).json({ success: false, message: 'Invalid reaction' });
+    const inc = {};
+    inc[`reactions.${reaction}`] = 1;
+    const post = await BlogPost.findByIdAndUpdate(req.params.id, { $inc: inc }, { new: true });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    res.json({ success: true, reactions: post.reactions });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// PATCH increment share count
+router.patch('/:id/share', async (req, res) => {
+  try {
+    const post = await BlogPost.findByIdAndUpdate(req.params.id, { $inc: { shares: 1 } }, { new: true });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    res.json({ success: true, shares: post.shares });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
@@ -73,11 +141,7 @@ router.put('/:id', auth, async (req, res) => {
       const existing = await BlogPost.findById(req.params.id);
       if (existing && !existing.published) updates.publishedAt = new Date();
     }
-    const post = await BlogPost.findByIdAndUpdate(
-      req.params.id,
-      { $set: updates },
-      { new: true }
-    );
+    const post = await BlogPost.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
     if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
     res.json({ success: true, post });
   } catch (err) {
@@ -85,12 +149,23 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE post
+// DELETE post + its comments
 router.delete('/:id', auth, async (req, res) => {
   try {
     const post = await BlogPost.findByIdAndDelete(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    await Comment.deleteMany({ postId: req.params.id });
     res.json({ success: true, message: 'Post deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE single comment (admin)
+router.delete('/comments/:id', auth, async (req, res) => {
+  try {
+    await Comment.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
