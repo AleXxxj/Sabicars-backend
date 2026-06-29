@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const BlogPost = require('../models/BlogPost');
-const Comment = require('../models/Comment');
+const Comment = require('../models/comment');
 const auth = require('../middleware/auth');
 
 // GET all published posts (public)
