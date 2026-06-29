@@ -65,6 +65,7 @@ router.get('/', async (req, res) => {
     let filter = { available: true };
 
     if (featured) filter.featured = true;
+    if (req.query.showInHero === 'true') filter.showInHero = true;
     if (make && make !== 'all') filter.make = make;
 
     if (category && category !== 'all') {
@@ -163,7 +164,10 @@ router.put('/:id', auth, handleUpload, async (req, res) => {
     if (req.body.featured !== undefined) {
       car.featured = req.body.featured === 'true' || req.body.featured === true;
     }
-
+    if (req.body.showInHero !== undefined) {
+      car.showInHero = req.body.showInHero === 'true' || req.body.showInHero === true;
+    }
+    
     await car.save();
     res.json({ success: true, car });
   } catch (err) {

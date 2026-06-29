@@ -1,42 +1,38 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-// REGISTER — only use this ONCE to create Ccristian's account
-// then we'll disable it
-router.post('/register', async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const exists = await Admin.findOne({ username });
-    if (exists) {
-      return res.status(400).json({ success: false, message: 'Admin already exists' });
-    }
-    const admin = await Admin.create({ username, password });
-    res.status(201).json({ success: true, message: 'Admin created successfully' });
+    const admin = await Admin.findOne({ username });
+    if (!admin) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    const valid = await bcrypt.compare(password, admin.password);
+    if (!valid) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ success: true, token });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// LOGIN
-router.post('/login', async (req, res) => {
+// Secondary PIN verification for admin actions
+router.post('/verify-pin', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const admin = await Admin.findOne({ username });
-    if (!admin) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    const { pin, type } = req.body;
+    if (!pin) return res.status(400).json({ success: false, message: 'PIN is required' });
+    const validPin = type === 'blog' ? process.env.BLOG_PIN : process.env.INVENTORY_PIN;
+    if (!validPin) {
+      const varName = type === 'blog' ? 'BLOG_PIN' : 'INVENTORY_PIN';
+      return res.status(500).json({ success: false, message: `${varName} not set on server. Add it to your Render environment variables.` });
     }
-    const isMatch = await admin.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (pin === validPin) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ success: false, message: 'Incorrect PIN. Try again.' });
     }
-    const token = jwt.sign(
-      { id: admin._id, username: admin.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    res.json({ success: true, token, username: admin.username });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

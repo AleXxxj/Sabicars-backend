@@ -20,6 +20,10 @@ app.use(express.urlencoded({ extended: true }));
 const carsRouter = require('./routes/cars');
 const blogRouter = require('./routes/blog');
 app.use('/api/blog', blogRouter);
+const reviewsRouter = require('./routes/reviews');
+const settingsRouter = require('./routes/settings');
+app.use('/api/reviews', reviewsRouter);
+app.use('/api/settings', settingsRouter);
 const authRouter = require('./routes/auth');
 
 app.use('/api/cars', carsRouter);
