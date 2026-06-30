@@ -7,7 +7,6 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -16,30 +15,33 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-const carsRouter = require('./routes/cars');
-const blogRouter = require('./routes/blog');
-app.use('/api/blog', blogRouter);
-const reviewsRouter = require('./routes/reviews');
-const settingsRouter = require('./routes/settings');
-app.use('/api/reviews', reviewsRouter);
-app.use('/api/settings', settingsRouter);
-const authRouter = require('./routes/auth');
+const carsRouter          = require('./routes/cars');
+const authRouter          = require('./routes/auth');
+const blogRouter          = require('./routes/blog');
+const reviewsRouter       = require('./routes/reviews');
+const settingsRouter      = require('./routes/settings');
+const subscribersRouter   = require('./routes/subscribers');
+const notificationsRouter = require('./routes/notifications');
+const enquiriesRouter     = require('./routes/enquiries');
 
-app.use('/api/cars', carsRouter);
-app.use('/api/auth', authRouter);
+app.use('/api/cars',          carsRouter);
+app.use('/api/auth',          authRouter);
+app.use('/api/blog',          blogRouter);
+app.use('/api/reviews',       reviewsRouter);
+app.use('/api/settings',      settingsRouter);
+app.use('/api/subscribers',   subscribersRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/enquiries',     enquiriesRouter);
 
-// Test route
 app.get('/', (req, res) => {
-  res.json({ message: '🚗 Sabicars API is running!' });
+  res.json({ message: '🚗 Sabicars API is running!', routes: ['/api/cars','/api/auth','/api/blog','/api/reviews','/api/settings','/api/subscribers','/api/notifications','/api/enquiries'] });
 });
 
-// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('✅ MongoDB connected — sabicars database ready');
-    app.listen(process.env.PORT, () => {
-      console.log(`🚀 Server running on port ${process.env.PORT}`);
+    console.log('✅ MongoDB connected');
+    app.listen(process.env.PORT || 5000, () => {
+      console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
     });
   })
   .catch((err) => {
