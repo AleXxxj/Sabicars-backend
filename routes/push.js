@@ -12,7 +12,7 @@ router.post('/send', auth, async (req, res) => {
 
     const payload = {
       app_id: process.env.ONESIGNAL_APP_ID,
-      included_segments: ['Subscribed Users'],
+      included_segments: ['Total Subscriptions'],
       headings: { en: title },
       contents: { en: message },
     };
